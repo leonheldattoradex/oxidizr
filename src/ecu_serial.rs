@@ -1,7 +1,3 @@
-#![allow(dead_code, unused)]
-// it's a rewrite, let's make rustc shut up
-// until we are actually somewhat done
-
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ValueRef};
 use std::cmp::Ordering;
 use std::fmt;

@@ -1,7 +1,3 @@
-#![allow(dead_code, unused)]
-// it's a rewrite, let's make rustc shut up
-// until we are actually somewhat done
-
 use clap::{Arg, ArgAction, Command};
 use env_logger::Env;
 use log::debug;
@@ -17,7 +13,6 @@ mod hardware_identifier;
 mod public_key;
 mod secondary_info;
 mod sqlstorage;
-mod tuf;
 mod tuf_repository_type;
 mod tuf_roles;
 mod tuf_version;

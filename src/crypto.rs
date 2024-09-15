@@ -1,7 +1,3 @@
-#![allow(dead_code, unused)]
-// it's a rewrite, let's make rustc shut up
-// until we are actually somewhat done
-
 use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
 use ring::digest::{digest, SHA256};

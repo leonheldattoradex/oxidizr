@@ -1,7 +1,3 @@
-#![allow(dead_code, unused)]
-// it's a rewrite, let's make rustc shut up
-// until we are actually somewhat done
-
 use crate::crypto::{Crypto, KeyType};
 use serde_json::Value;
 use std::error::Error;

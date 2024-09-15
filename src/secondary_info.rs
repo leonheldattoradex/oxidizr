@@ -1,7 +1,3 @@
-#![allow(dead_code, unused)]
-// it's a rewrite, let's make rustc shut up
-// until we are actually somewhat done
-
 use crate::ecu_serial::EcuSerial;
 use crate::hardware_identifier::HardwareIdentifier;
 use crate::public_key::PublicKey;
@@ -11,8 +7,11 @@ use std::fmt;
 pub struct SecondaryInfo {
     pub serial: EcuSerial,
     pub hw_id: HardwareIdentifier,
+    #[allow(dead_code)]
     pub kind: String,
+    #[allow(dead_code)]
     pub pub_key: PublicKey,
+    #[allow(dead_code)]
     pub extra: String,
 }
 

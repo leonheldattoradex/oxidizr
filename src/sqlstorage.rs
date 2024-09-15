@@ -1,8 +1,3 @@
-#![allow(dead_code, unused)]
-// it's a rewrite, let's make rustc shut up
-// until we are actually somewhat done
-
-use rusqlite::types::Type;
 use rusqlite::{params, Connection, Error, OptionalExtension, Result};
 
 use crate::crypto::KeyType;
@@ -12,7 +7,6 @@ use crate::public_key::PublicKey;
 use crate::secondary_info::SecondaryInfo;
 use crate::tuf_repository_type::RepositoryType;
 use crate::tuf_roles::Role;
-use crate::tuf_version::Version;
 use crate::types::Ecu;
 
 use log::{debug, error, trace};
