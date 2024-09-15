@@ -2,16 +2,19 @@
 // it's a rewrite, let's make rustc shut up
 // until we are actually somewhat done
 
-use rusqlite::{Connection, Error, OptionalExtension, Result};
+use rusqlite::{params, Connection, Error, OptionalExtension, Result};
 
 use crate::crypto::KeyType;
 use crate::ecu_serial::EcuSerial;
 use crate::hardware_identifier::HardwareIdentifier;
 use crate::public_key::PublicKey;
 use crate::secondary_info::SecondaryInfo;
+use crate::tuf_repository_type::RepositoryType;
+use crate::tuf_roles::Role;
+use crate::tuf_version::Version;
 use crate::types::Ecu;
 
-use log::{debug, error};
+use log::{debug, error, trace};
 
 pub struct SQLStorage {
     conn: Connection,
@@ -223,5 +226,68 @@ impl SQLStorage {
         }
 
         Ok(!empty)
+    }
+
+    pub fn load_image_root(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_root_internal(RepositoryType::image(), Version::new())
+    }
+
+    pub fn load_director_root(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_root_internal(RepositoryType::director(), Version::new())
+    }
+
+    fn load_root_internal(
+        &self,
+        repo: RepositoryType,
+        version: Version,
+    ) -> Result<Option<String>, rusqlite::Error> {
+        let repo_int = i32::from(repo);
+        let role_int = Role::root().to_int();
+
+        if version.is_latest() {
+            // Fetch the latest version
+            let stmt_str =
+                "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
+            let mut stmt = self.conn.prepare(stmt_str)?;
+
+            let mut rows = stmt.query(params![repo_int, role_int])?;
+
+            if let Some(row) = rows.next()? {
+                let blob: Vec<u8> = row.get(0)?;
+                let data = String::from_utf8(blob).map_err(|_e| {
+                    rusqlite::Error::InvalidColumnType(
+                        0,
+                        "meta".to_string(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?;
+                Ok(Some(data))
+            } else {
+                log::trace!("Root metadata not found in database");
+                Ok(None)
+            }
+        } else {
+            // Fetch a specific version
+            let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=? AND version=?);";
+            let mut stmt = self.conn.prepare(stmt_str)?;
+
+            let version_int = version.version();
+            let mut rows = stmt.query(params![repo_int, role_int, version_int])?;
+
+            if let Some(row) = rows.next()? {
+                let blob: Vec<u8> = row.get(0)?;
+                let data = String::from_utf8(blob).map_err(|_e| {
+                    rusqlite::Error::InvalidColumnType(
+                        0,
+                        "meta".to_string(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?;
+                Ok(Some(data))
+            } else {
+                log::trace!("Root metadata not found in database");
+                Ok(None)
+            }
+        }
     }
 }

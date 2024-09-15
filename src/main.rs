@@ -15,6 +15,10 @@ mod hardware_identifier;
 mod public_key;
 mod secondary_info;
 mod sqlstorage;
+mod tuf;
+mod tuf_repository_type;
+mod tuf_roles;
+mod tuf_version;
 mod types;
 
 fn main() -> Result<()> {
@@ -95,12 +99,12 @@ fn main() -> Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Outputs Secondaries' Uptane public keys"),
         )
-        // .arg(
-        //     Arg::new("image-root")
-        //         .long("image-root")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs root.json from Image repo, by default the latest"),
-        // )
+        .arg(
+            Arg::new("image-root")
+                .long("image-root")
+                .action(ArgAction::SetTrue)
+                .help("Outputs root.json from Image repo, by default the latest"),
+        )
         // .arg(
         //     Arg::new("image-timestamp")
         //         .long("image-timestamp")
@@ -125,12 +129,12 @@ fn main() -> Result<()> {
         //         .action(ArgAction::SetTrue)
         //         .help("Outputs metadata of Image repo Targets' delegations"),
         // )
-        // .arg(
-        //     Arg::new("director-root")
-        //         .long("director-root")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs root.json from Director repo, by default the latest"),
-        // )
+        .arg(
+            Arg::new("director-root")
+                .long("director-root")
+                .action(ArgAction::SetTrue)
+                .help("Outputs root.json from Director repo, by default the latest"),
+        )
         // .arg(
         //     Arg::new("director-targets")
         //         .long("director-targets")
@@ -311,6 +315,23 @@ fn main() -> Result<()> {
             println!("No secondary info found.");
         }
     }
+
+    if matches.get_flag("image-root") {
+        print_default_information = false;
+        match storage.load_image_root()? {
+            Some(root_metadata) => println!("{}", root_metadata),
+            None => println!("Failed to load image root metadata."),
+        }
+    }
+
+    if matches.get_flag("director-root") {
+        print_default_information = false;
+        match storage.load_director_root()? {
+            Some(root_metadata) => println!("{}", root_metadata),
+            None => println!("Failed to load director root metadata."),
+        }
+    }
+
     // Print general information if user does not provide any argument.
     if print_default_information {
         match storage.load_device_id()? {
