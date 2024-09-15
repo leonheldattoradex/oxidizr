@@ -141,13 +141,13 @@ fn main() -> Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Outputs targets.json from Director repo"),
         )
-        // .arg(
-        //     Arg::new("root-version")
-        //         .long("root-version")
-        //         .action(ArgAction::Set)
-        //         .value_name("VERSION")
-        //         .help("Use with --image-root or --director-root to specify the version to output"),
-        // )
+        .arg(
+            Arg::new("root-version")
+                .long("root-version")
+                .action(ArgAction::Set)
+                .value_name("VERSION")
+                .help("Use with --image-root or --director-root to specify the version to output"),
+        )
         // .arg(
         //     Arg::new("allow-migrate")
         //         .long("allow-migrate")
@@ -317,15 +317,26 @@ fn main() -> Result<()> {
 
     if matches.get_flag("image-root") {
         print_default_information = false;
-        match storage.load_image_root()? {
+
+        let version = matches
+            .get_one::<String>("root-version")
+            .and_then(|v| v.parse::<i32>().ok());
+
+        match storage.load_image_root_with_version(version)? {
             Some(root_metadata) => println!("{}", root_metadata),
             None => println!("Failed to load image root metadata."),
         }
     }
 
+    // Handle director-root option with root-version
     if matches.get_flag("director-root") {
         print_default_information = false;
-        match storage.load_director_root()? {
+
+        let version = matches
+            .get_one::<String>("root-version")
+            .and_then(|v| v.parse::<i32>().ok());
+
+        match storage.load_director_root_with_version(version)? {
             Some(root_metadata) => println!("{}", root_metadata),
             None => println!("Failed to load director root metadata."),
         }

@@ -238,33 +238,51 @@ impl SQLStorage {
     }
 
     pub fn load_image_root(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_root_internal(RepositoryType::image(), Version::new())
+        self.load_root_internal(RepositoryType::image(), None)
     }
 
     pub fn load_director_root(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_root_internal(RepositoryType::director(), Version::new())
+        self.load_root_internal(RepositoryType::director(), None)
     }
 
+    pub fn load_image_root_with_version(
+        &self,
+        version: Option<i32>,
+    ) -> Result<Option<String>, rusqlite::Error> {
+        self.load_root_internal(RepositoryType::image(), version)
+    }
+
+    pub fn load_director_root_with_version(
+        &self,
+        version: Option<i32>,
+    ) -> Result<Option<String>, rusqlite::Error> {
+        self.load_root_internal(RepositoryType::director(), version)
+    }
+
+    // Internal function to load root metadata, handling both latest and specific versions
     fn load_root_internal(
         &self,
         repo: RepositoryType,
-        version: Version,
+        version: Option<i32>,
     ) -> Result<Option<String>, rusqlite::Error> {
         let repo_int = i32::from(repo);
         let role_int = Role::root().to_int();
 
-        if version.is_latest() {
-            // Fetch the latest version
-            let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
+        if let Some(version) = version {
+            // Fetch a specific version
+            let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=? AND version=?);";
             let mut stmt = self.conn.prepare(stmt_str)?;
-
-            let mut rows = stmt.query(params![repo_int, role_int])?;
+            let mut rows = stmt.query(params![repo_int, role_int, version])?;
 
             match rows.next()? {
                 Some(row) => {
                     let blob: Vec<u8> = row.get(0)?;
                     let data = String::from_utf8(blob).map_err(|_e| {
-                        rusqlite::Error::InvalidColumnType(0, "meta".to_string(), Type::Text)
+                        rusqlite::Error::InvalidColumnType(
+                            0,
+                            "meta".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
                     })?;
                     Ok(Some(data))
                 }
@@ -274,18 +292,20 @@ impl SQLStorage {
                 }
             }
         } else {
-            // Fetch a specific version
-            let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=? AND version=?);";
+            // Fetch the latest version
+            let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
             let mut stmt = self.conn.prepare(stmt_str)?;
-
-            let version_int = version.version();
-            let mut rows = stmt.query(params![repo_int, role_int, version_int])?;
+            let mut rows = stmt.query(params![repo_int, role_int])?;
 
             match rows.next()? {
                 Some(row) => {
                     let blob: Vec<u8> = row.get(0)?;
                     let data = String::from_utf8(blob).map_err(|_e| {
-                        rusqlite::Error::InvalidColumnType(0, "meta".to_string(), Type::Text)
+                        rusqlite::Error::InvalidColumnType(
+                            0,
+                            "meta".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
                     })?;
                     Ok(Some(data))
                 }
@@ -296,7 +316,6 @@ impl SQLStorage {
             }
         }
     }
-
     pub fn load_director_targets(&self) -> Result<Option<String>, rusqlite::Error> {
         self.load_non_root_internal(RepositoryType::director(), Role::targets())
     }
