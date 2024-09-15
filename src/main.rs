@@ -81,18 +81,18 @@ fn main() -> Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Outputs Primary's Uptane public key ID"),
         )
-        .arg(
-            Arg::new("ecu-pub-key")
-                .long("ecu-pub-key")
-                .action(ArgAction::SetTrue)
-                .help("Outputs Primary's Uptane public key"),
-        )
-        .arg(
-            Arg::new("ecu-prv-key")
-                .long("ecu-prv-key")
-                .action(ArgAction::SetTrue)
-                .help("Outputs Primary's Uptane private key"),
-        )
+        //.arg(
+        //     Arg::new("ecu-pub-key")
+        //         .long("ecu-pub-key")
+        //         .action(ArgAction::SetTrue)
+        //         .help("Outputs Primary's Uptane public key"),
+        // )
+        // .arg(
+        //     Arg::new("ecu-prv-key")
+        //         .long("ecu-prv-key")
+        //         .action(ArgAction::SetTrue)
+        //         .help("Outputs Primary's Uptane private key"),
+        // )
         .arg(
             Arg::new("secondary-keys")
                 .long("secondary-keys")
@@ -105,24 +105,24 @@ fn main() -> Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Outputs root.json from Image repo, by default the latest"),
         )
-        // .arg(
-        //     Arg::new("image-timestamp")
-        //         .long("image-timestamp")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs timestamp.json from Image repo"),
-        // )
-        // .arg(
-        //     Arg::new("image-snapshot")
-        //         .long("image-snapshot")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs snapshot.json from Image repo"),
-        // )
-        // .arg(
-        //     Arg::new("image-targets")
-        //         .long("image-targets")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs targets.json from Image repo"),
-        // )
+        .arg(
+            Arg::new("image-timestamp")
+                .long("image-timestamp")
+                .action(ArgAction::SetTrue)
+                .help("Outputs timestamp.json from Image repo"),
+        )
+        .arg(
+            Arg::new("image-snapshot")
+                .long("image-snapshot")
+                .action(ArgAction::SetTrue)
+                .help("Outputs snapshot.json from Image repo"),
+        )
+        .arg(
+            Arg::new("image-targets")
+                .long("image-targets")
+                .action(ArgAction::SetTrue)
+                .help("Outputs targets.json from Image repo"),
+        )
         // .arg(
         //     Arg::new("delegation")
         //         .long("delegation")
@@ -135,12 +135,12 @@ fn main() -> Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Outputs root.json from Director repo, by default the latest"),
         )
-        // .arg(
-        //     Arg::new("director-targets")
-        //         .long("director-targets")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs targets.json from Director repo"),
-        // )
+        .arg(
+            Arg::new("director-targets")
+                .long("director-targets")
+                .action(ArgAction::SetTrue)
+                .help("Outputs targets.json from Director repo"),
+        )
         // .arg(
         //     Arg::new("root-version")
         //         .long("root-version")
@@ -167,48 +167,48 @@ fn main() -> Result<()> {
         //         .help("Outputs root.json from Image repo")
         //         .hide(true),
         // )
-        // .arg(
-        //     Arg::new("images-timestamp")
-        //         .long("images-timestamp")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs timestamp.json from Image repo")
-        //         .hide(true),
-        // )
-        // .arg(
-        //     Arg::new("images-snapshot")
-        //         .long("images-snapshot")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs snapshot.json from Image repo")
-        //         .hide(true),
-        // )
-        // .arg(
-        //     Arg::new("images-target")
-        //         .long("images-target")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs targets.json from Image repo")
-        //         .hide(true),
-        // )
-        // .arg(
-        //     Arg::new("images-targets")
-        //         .long("images-targets")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs targets.json from Image repo")
-        //         .hide(true),
-        // )
-        // .arg(
-        //     Arg::new("image-target")
-        //         .long("image-target")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs targets.json from Image repo")
-        //         .hide(true),
-        // )
-        // .arg(
-        //     Arg::new("director-target")
-        //         .long("director-target")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs targets.json from Director repo")
-        //         .hide(true),
-        // )
+        .arg(
+            Arg::new("images-timestamp")
+                .long("images-timestamp")
+                .action(ArgAction::SetTrue)
+                .help("Outputs timestamp.json from Image repo")
+                .hide(true),
+        )
+        .arg(
+            Arg::new("images-snapshot")
+                .long("images-snapshot")
+                .action(ArgAction::SetTrue)
+                .help("Outputs snapshot.json from Image repo")
+                .hide(true),
+        )
+        .arg(
+            Arg::new("images-target")
+                .long("images-target")
+                .action(ArgAction::SetTrue)
+                .help("Outputs targets.json from Image repo")
+                .hide(true),
+        )
+        .arg(
+            Arg::new("images-targets")
+                .long("images-targets")
+                .action(ArgAction::SetTrue)
+                .help("Outputs targets.json from Image repo")
+                .hide(true),
+        )
+        .arg(
+            Arg::new("image-target")
+                .long("image-target")
+                .action(ArgAction::SetTrue)
+                .help("Outputs targets.json from Image repo")
+                .hide(true),
+        )
+        .arg(
+            Arg::new("director-target")
+                .long("director-target")
+                .action(ArgAction::SetTrue)
+                .help("Outputs targets.json from Director repo")
+                .hide(true),
+        )
 
         .get_matches();
 
@@ -272,25 +272,24 @@ fn main() -> Result<()> {
         }
     }
 
-    if matches.get_flag("ecu-keys") {
+    if matches.get_flag("ecu-keys") || matches.get_flag("ecu-keyid") {
         print_default_information = false;
-        let mut public_key = String::new();
-        let mut private_key = String::new();
 
-        if storage.load_primary_keys(&mut public_key, &mut private_key)? {
-            // missing
-            // PublicKey pubkey(pub, config.uptane.key_type);
-            // std::cout << "Public key ID: " << pubkey.KeyId() << std::endl;
+        if let Some((pubkey, privkey)) = storage.load_primary_keys()? {
+            if matches.get_flag("ecu-keys") {
+                println!("Public Key:");
+                println!("{}", pubkey);
+                println!("Private Key:");
+                println!("{}", privkey);
+            }
 
-            println!("Public Key:");
-            println!("{}", public_key);
-            println!("Private Key:");
-            println!("{}", private_key);
+            if matches.get_flag("ecu-keyid") {
+                println!("Public Key ID: {}", pubkey.key_id());
+            }
         } else {
             println!("Failed to load primary keys or keys are empty.");
         }
     }
-
     if matches.get_flag("name-only") {
         print_default_information = false;
         match storage.load_device_id()? {
@@ -329,6 +328,38 @@ fn main() -> Result<()> {
         match storage.load_director_root()? {
             Some(root_metadata) => println!("{}", root_metadata),
             None => println!("Failed to load director root metadata."),
+        }
+    }
+
+    if matches.get_flag("director-targets") || matches.get_flag("director-target") {
+        match storage.load_director_targets()? {
+            Some(director_targets) => println!("{}", director_targets),
+            None => println!("Director targets metadata not found."),
+        }
+    }
+
+    if matches.get_flag("image-snapshot") || matches.get_flag("images-snapshot") {
+        match storage.load_image_snapshot()? {
+            Some(snapshot) => println!("{}", snapshot),
+            None => println!("Image snapshot metadata not found."),
+        }
+    }
+
+    if matches.get_flag("image-timestamp") || matches.get_flag("images-timestamp") {
+        match storage.load_image_timestamp()? {
+            Some(timestamp) => println!("{}", timestamp),
+            None => println!("Image timestamp metadata not found."),
+        }
+    }
+
+    if matches.get_flag("image-targets")
+        || matches.get_flag("image-target")
+        || matches.get_flag("images-targets")
+        || matches.get_flag("images-target")
+    {
+        match storage.load_image_targets()? {
+            Some(images_targets) => println!("{}", images_targets),
+            None => println!("Image targets metadata not found."),
         }
     }
 

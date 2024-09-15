@@ -2,6 +2,7 @@
 // it's a rewrite, let's make rustc shut up
 // until we are actually somewhat done
 
+use rusqlite::types::Type;
 use rusqlite::{params, Connection, Error, OptionalExtension, Result};
 
 use crate::crypto::KeyType;
@@ -33,7 +34,7 @@ impl SQLStorage {
 
         match stmt.query_row([], |row| row.get(0)) {
             Ok(public_key) => Ok(Some(public_key)),
-            Err(Error::QueryReturnedNoRows) => {
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
                 error!("Uptane public key not found in database");
                 Ok(None)
             }
@@ -50,7 +51,7 @@ impl SQLStorage {
             .prepare("SELECT private FROM primary_keys LIMIT 1;")?;
         match stmt.query_row([], |row| row.get(0)) {
             Ok(private_key) => Ok(Some(private_key)),
-            Err(Error::QueryReturnedNoRows) => {
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
                 error!("Uptane private key not found in database");
                 Ok(None)
             }
@@ -61,19 +62,27 @@ impl SQLStorage {
         }
     }
 
-    pub fn load_primary_keys(
-        &self,
-        public_key: &mut String,
-        private_key: &mut String,
-    ) -> Result<bool> {
-        let pub_key = self.load_primary_public()?;
-        let priv_key = self.load_primary_private()?;
-        if let (Some(pub_key), Some(priv_key)) = (pub_key, priv_key) {
-            *public_key = pub_key;
-            *private_key = priv_key;
-            Ok(true)
+    // This wrapper exists so that the PublicKey object won't spill into main.rs
+    pub fn load_primary_key(&self) -> Result<Option<PublicKey>> {
+        let pub_key_str = self.load_primary_public()?;
+
+        if let Some(pub_key_str) = pub_key_str {
+            let pub_key = PublicKey::new(&pub_key_str, KeyType::Unknown); // Handle KeyType appropriately if needed
+            Ok(Some(pub_key))
         } else {
-            Ok(false)
+            Ok(None)
+        }
+    }
+
+    pub fn load_primary_keys(&self) -> Result<Option<(PublicKey, String)>> {
+        let pub_key_str = self.load_primary_public()?;
+        let priv_key_str = self.load_primary_private()?;
+
+        if let (Some(pub_key_str), Some(priv_key_str)) = (pub_key_str, priv_key_str) {
+            let pub_key = PublicKey::new(&pub_key_str, KeyType::Unknown); // Handle KeyType appropriately
+            Ok(Some((pub_key, priv_key_str)))
+        } else {
+            Ok(None)
         }
     }
 
@@ -246,25 +255,23 @@ impl SQLStorage {
 
         if version.is_latest() {
             // Fetch the latest version
-            let stmt_str =
-                "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
+            let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
             let mut stmt = self.conn.prepare(stmt_str)?;
 
             let mut rows = stmt.query(params![repo_int, role_int])?;
 
-            if let Some(row) = rows.next()? {
-                let blob: Vec<u8> = row.get(0)?;
-                let data = String::from_utf8(blob).map_err(|_e| {
-                    rusqlite::Error::InvalidColumnType(
-                        0,
-                        "meta".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
-                })?;
-                Ok(Some(data))
-            } else {
-                log::trace!("Root metadata not found in database");
-                Ok(None)
+            match rows.next()? {
+                Some(row) => {
+                    let blob: Vec<u8> = row.get(0)?;
+                    let data = String::from_utf8(blob).map_err(|_e| {
+                        rusqlite::Error::InvalidColumnType(0, "meta".to_string(), Type::Text)
+                    })?;
+                    Ok(Some(data))
+                }
+                None => {
+                    trace!("Root metadata not found in database");
+                    Ok(None)
+                }
             }
         } else {
             // Fetch a specific version
@@ -274,18 +281,62 @@ impl SQLStorage {
             let version_int = version.version();
             let mut rows = stmt.query(params![repo_int, role_int, version_int])?;
 
-            if let Some(row) = rows.next()? {
+            match rows.next()? {
+                Some(row) => {
+                    let blob: Vec<u8> = row.get(0)?;
+                    let data = String::from_utf8(blob).map_err(|_e| {
+                        rusqlite::Error::InvalidColumnType(0, "meta".to_string(), Type::Text)
+                    })?;
+                    Ok(Some(data))
+                }
+                None => {
+                    trace!("Root metadata not found in database");
+                    Ok(None)
+                }
+            }
+        }
+    }
+
+    pub fn load_director_targets(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_non_root_internal(RepositoryType::director(), Role::targets())
+    }
+
+    pub fn load_image_snapshot(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_non_root_internal(RepositoryType::image(), Role::snapshot())
+    }
+
+    pub fn load_image_timestamp(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_non_root_internal(RepositoryType::image(), Role::timestamp())
+    }
+
+    pub fn load_image_targets(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_non_root_internal(RepositoryType::image(), Role::targets())
+    }
+
+    fn load_non_root_internal(
+        &self,
+        repo: RepositoryType,
+        role: Role,
+    ) -> Result<Option<String>, rusqlite::Error> {
+        let repo_int = i32::from(repo);
+        let role_int = role.to_int();
+
+        let stmt_str =
+            "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
+        let mut stmt = self.conn.prepare(stmt_str)?;
+
+        let mut rows = stmt.query(params![repo_int, role_int])?;
+
+        match rows.next()? {
+            Some(row) => {
                 let blob: Vec<u8> = row.get(0)?;
-                let data = String::from_utf8(blob).map_err(|_e| {
-                    rusqlite::Error::InvalidColumnType(
-                        0,
-                        "meta".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
+                let data_str = String::from_utf8(blob).map_err(|_e| {
+                    rusqlite::Error::InvalidColumnType(0, "meta".to_string(), Type::Text)
                 })?;
-                Ok(Some(data))
-            } else {
-                log::trace!("Root metadata not found in database");
+                Ok(Some(data_str))
+            }
+            None => {
+                trace!("{} metadata not found in database", role);
                 Ok(None)
             }
         }

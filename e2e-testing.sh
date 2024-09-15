@@ -10,8 +10,13 @@ options=(
     "--tls-prv-key"
     "--ecu-keys"
     "--ecu-keyid"
-    "--ecu-pub-key"
-    "--ecu-prv-key"
+    "--secondary-keys"
+    "--image-root"
+    "--image-timestamp"
+    "--image-snapshot"
+    "--image-targets"
+    "--director-root"
+    "--director-targets"
 )
 
 run_test() {
@@ -37,3 +42,4 @@ for option in "${options[@]}"; do
 done
 
 echo "All tests completed!"
+
