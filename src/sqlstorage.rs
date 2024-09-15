@@ -22,8 +22,13 @@ pub struct SQLStorage {
 }
 
 impl SQLStorage {
-    pub fn new(database_path: &str) -> Result<Self> {
-        let conn = Connection::open(database_path)?;
+    pub fn new(database_path: &str, allow_migrate: bool) -> Result<Self> {
+        let conn = if allow_migrate {
+            Connection::open(database_path)?
+        } else {
+            // Open the database in read-only mode
+            Connection::open_with_flags(database_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?
+        };
         Ok(SQLStorage { conn })
     }
 
@@ -237,39 +242,16 @@ impl SQLStorage {
         Ok(!empty)
     }
 
-    pub fn load_image_root(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_root_internal(RepositoryType::image(), None)
-    }
-
-    pub fn load_director_root(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_root_internal(RepositoryType::director(), None)
-    }
-
-    pub fn load_image_root_with_version(
-        &self,
-        version: Option<i32>,
-    ) -> Result<Option<String>, rusqlite::Error> {
-        self.load_root_internal(RepositoryType::image(), version)
-    }
-
-    pub fn load_director_root_with_version(
-        &self,
-        version: Option<i32>,
-    ) -> Result<Option<String>, rusqlite::Error> {
-        self.load_root_internal(RepositoryType::director(), version)
-    }
-
-    // Internal function to load root metadata, handling both latest and specific versions
-    fn load_root_internal(
+    pub fn load_metadata(
         &self,
         repo: RepositoryType,
+        role: Role,
         version: Option<i32>,
     ) -> Result<Option<String>, rusqlite::Error> {
         let repo_int = i32::from(repo);
-        let role_int = Role::root().to_int();
+        let role_int = role.to_int();
 
         if let Some(version) = version {
-            // Fetch a specific version
             let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=? AND version=?);";
             let mut stmt = self.conn.prepare(stmt_str)?;
             let mut rows = stmt.query(params![repo_int, role_int, version])?;
@@ -287,12 +269,12 @@ impl SQLStorage {
                     Ok(Some(data))
                 }
                 None => {
-                    trace!("Root metadata not found in database");
+                    trace!("Metadata for {} not found in database", role);
                     Ok(None)
                 }
             }
         } else {
-            // Fetch the latest version
+            // Get the latest version
             let stmt_str = "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
             let mut stmt = self.conn.prepare(stmt_str)?;
             let mut rows = stmt.query(params![repo_int, role_int])?;
@@ -310,54 +292,47 @@ impl SQLStorage {
                     Ok(Some(data))
                 }
                 None => {
-                    trace!("Root metadata not found in database");
+                    trace!("Latest metadata for {} not found in database", role);
                     Ok(None)
                 }
             }
         }
     }
+
+    pub fn load_image_root(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_metadata(RepositoryType::image(), Role::root(), None)
+    }
+    pub fn load_image_root_with_version(
+        &self,
+        version: Option<i32>,
+    ) -> Result<Option<String>, rusqlite::Error> {
+        self.load_metadata(RepositoryType::image(), Role::root(), version)
+    }
+
+    pub fn load_director_root_with_version(
+        &self,
+        version: Option<i32>,
+    ) -> Result<Option<String>, rusqlite::Error> {
+        self.load_metadata(RepositoryType::director(), Role::root(), version)
+    }
+
+    pub fn load_director_root(&self) -> Result<Option<String>, rusqlite::Error> {
+        self.load_metadata(RepositoryType::director(), Role::root(), None)
+    }
+
     pub fn load_director_targets(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_non_root_internal(RepositoryType::director(), Role::targets())
+        self.load_metadata(RepositoryType::director(), Role::targets(), None)
     }
 
     pub fn load_image_snapshot(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_non_root_internal(RepositoryType::image(), Role::snapshot())
+        self.load_metadata(RepositoryType::image(), Role::snapshot(), None)
     }
 
     pub fn load_image_timestamp(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_non_root_internal(RepositoryType::image(), Role::timestamp())
+        self.load_metadata(RepositoryType::image(), Role::timestamp(), None)
     }
 
     pub fn load_image_targets(&self) -> Result<Option<String>, rusqlite::Error> {
-        self.load_non_root_internal(RepositoryType::image(), Role::targets())
-    }
-
-    fn load_non_root_internal(
-        &self,
-        repo: RepositoryType,
-        role: Role,
-    ) -> Result<Option<String>, rusqlite::Error> {
-        let repo_int = i32::from(repo);
-        let role_int = role.to_int();
-
-        let stmt_str =
-            "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;";
-        let mut stmt = self.conn.prepare(stmt_str)?;
-
-        let mut rows = stmt.query(params![repo_int, role_int])?;
-
-        match rows.next()? {
-            Some(row) => {
-                let blob: Vec<u8> = row.get(0)?;
-                let data_str = String::from_utf8(blob).map_err(|_e| {
-                    rusqlite::Error::InvalidColumnType(0, "meta".to_string(), Type::Text)
-                })?;
-                Ok(Some(data_str))
-            }
-            None => {
-                trace!("{} metadata not found in database", role);
-                Ok(None)
-            }
-        }
+        self.load_metadata(RepositoryType::image(), Role::targets(), None)
     }
 }

@@ -4,10 +4,12 @@
 
 use clap::{Arg, ArgAction, Command};
 use env_logger::Env;
+use log::debug;
 use rusqlite::Result;
 use sqlstorage::SQLStorage;
 
-use log::debug;
+use std::thread::sleep;
+use std::time::Duration;
 
 mod crypto;
 mod ecu_serial;
@@ -81,18 +83,18 @@ fn main() -> Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Outputs Primary's Uptane public key ID"),
         )
-        //.arg(
-        //     Arg::new("ecu-pub-key")
-        //         .long("ecu-pub-key")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs Primary's Uptane public key"),
-        // )
-        // .arg(
-        //     Arg::new("ecu-prv-key")
-        //         .long("ecu-prv-key")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs Primary's Uptane private key"),
-        // )
+        .arg(
+             Arg::new("ecu-pub-key")
+                 .long("ecu-pub-key")
+                 .action(ArgAction::SetTrue)
+                 .help("Outputs Primary's Uptane public key"),
+         )
+         .arg(
+             Arg::new("ecu-prv-key")
+                 .long("ecu-prv-key")
+                 .action(ArgAction::SetTrue)
+                 .help("Outputs Primary's Uptane private key"),
+         )
         .arg(
             Arg::new("secondary-keys")
                 .long("secondary-keys")
@@ -123,12 +125,12 @@ fn main() -> Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Outputs targets.json from Image repo"),
         )
-        // .arg(
-        //     Arg::new("delegation")
-        //         .long("delegation")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs metadata of Image repo Targets' delegations"),
-        // )
+        .arg(
+            Arg::new("delegation")
+                .long("delegation")
+                .action(ArgAction::SetTrue)
+                .help("Outputs metadata of Image repo Targets' delegations"),
+        )
         .arg(
             Arg::new("director-root")
                 .long("director-root")
@@ -146,27 +148,28 @@ fn main() -> Result<()> {
                 .long("root-version")
                 .action(ArgAction::Set)
                 .value_name("VERSION")
-                .help("Use with --image-root or --director-root to specify the version to output"),
+                .help("Use with --image-root or --director-root to specify the version to output")
+                .value_parser(clap::value_parser!(i32)),
         )
-        // .arg(
-        //     Arg::new("allow-migrate")
-        //         .long("allow-migrate")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Opens database in read/write mode to make possible to migrate database if needed"),
-        // )
-        // .arg(
-        //     Arg::new("wait-until-provisioned")
-        //         .long("wait-until-provisioned")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs metadata when device already provisioned"),
-        // )
-        // .arg(
-        //     Arg::new("images-root")
-        //         .long("images-root")
-        //         .action(ArgAction::SetTrue)
-        //         .help("Outputs root.json from Image repo")
-        //         .hide(true),
-        // )
+        .arg(
+            Arg::new("allow-migrate")
+                .long("allow-migrate")
+                .action(ArgAction::SetTrue)
+                .help("Opens database in read/write mode to make possible to migrate database if needed"),
+        )
+        .arg(
+            Arg::new("wait-until-provisioned")
+                .long("wait-until-provisioned")
+                .action(ArgAction::SetTrue)
+                .help("Busy wait until the device is registered and has metadata, ie, is provisioned"),
+        )
+        .arg(
+            Arg::new("images-root")
+                .long("images-root")
+                .action(ArgAction::SetTrue)
+                .help("Outputs root.json from Image repo")
+                .hide(true),
+        )
         .arg(
             Arg::new("images-timestamp")
                 .long("images-timestamp")
@@ -214,8 +217,29 @@ fn main() -> Result<()> {
 
     let mut print_default_information = true;
 
-    let storage = SQLStorage::new("sql.db")?;
+    let allow_migrate = matches.get_flag("allow-migrate");
+    let wait_until_provisioned = matches.get_flag("wait-until-provisioned");
+    let mut storage = SQLStorage::new("sql.db", allow_migrate)?;
 
+    if wait_until_provisioned {
+        let mut registered = false;
+        let mut has_metadata = false;
+        while !registered || !has_metadata {
+            match SQLStorage::new("sql.db", allow_migrate) {
+                Ok(new_storage) => {
+                    storage = new_storage;
+                    registered = storage.load_ecu_registered()?;
+                    has_metadata = storage.load_director_root()?.is_some();
+                }
+                Err(e) => {
+                    log::debug!("Storage exception: {}", e);
+                }
+            }
+
+            // Busy wait
+            sleep(Duration::from_secs(1));
+        }
+    }
     let tls_required = matches.get_flag("tls-creds")
         || matches.get_flag("tls-root-ca")
         || matches.get_flag("tls-cert")
@@ -272,7 +296,11 @@ fn main() -> Result<()> {
         }
     }
 
-    if matches.get_flag("ecu-keys") || matches.get_flag("ecu-keyid") {
+    if matches.get_flag("ecu-keys")
+        || matches.get_flag("ecu-keyid")
+        || matches.get_flag("ecu-pub-key")
+        || matches.get_flag("ecu-prv-key")
+    {
         print_default_information = false;
 
         if let Some((pubkey, privkey)) = storage.load_primary_keys()? {
@@ -285,6 +313,16 @@ fn main() -> Result<()> {
 
             if matches.get_flag("ecu-keyid") {
                 println!("Public Key ID: {}", pubkey.key_id());
+            }
+
+            if matches.get_flag("ecu-pub-key") {
+                println!("Public Key:");
+                println!("{}", pubkey);
+            }
+
+            if matches.get_flag("ecu-prv-key") {
+                println!("Private Key:");
+                println!("{}", privkey);
             }
         } else {
             println!("Failed to load primary keys or keys are empty.");
@@ -314,13 +352,10 @@ fn main() -> Result<()> {
             println!("No secondary info found.");
         }
     }
-
-    if matches.get_flag("image-root") {
+    if matches.get_flag("image-root") || matches.get_flag("images-root") {
         print_default_information = false;
-
-        let version = matches
-            .get_one::<String>("root-version")
-            .and_then(|v| v.parse::<i32>().ok());
+        // Get the root version, if provided
+        let version = matches.get_one::<i32>("root-version").copied();
 
         match storage.load_image_root_with_version(version)? {
             Some(root_metadata) => println!("{}", root_metadata),
@@ -328,13 +363,10 @@ fn main() -> Result<()> {
         }
     }
 
-    // Handle director-root option with root-version
     if matches.get_flag("director-root") {
         print_default_information = false;
-
-        let version = matches
-            .get_one::<String>("root-version")
-            .and_then(|v| v.parse::<i32>().ok());
+        // Get the root version, if provided
+        let version = matches.get_one::<i32>("root-version").copied();
 
         match storage.load_director_root_with_version(version)? {
             Some(root_metadata) => println!("{}", root_metadata),

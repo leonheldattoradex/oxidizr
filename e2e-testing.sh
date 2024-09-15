@@ -10,6 +10,8 @@ options=(
     "--tls-prv-key"
     "--ecu-keys"
     "--ecu-keyid"
+    "--ecu-pub-key"
+    "--ecu-prv-key"
     "--secondary-keys"
     "--image-root"
     "--image-timestamp"
@@ -17,6 +19,9 @@ options=(
     "--image-targets"
     "--director-root"
     "--director-targets"
+    "--root-version"
+    "--allow-migrate"
+    "--wait-until-provisioned"
 )
 
 run_test() {
